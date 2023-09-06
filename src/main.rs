@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::num::NonZeroU32;
 
 use chrono::prelude::*;
@@ -11,17 +12,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(path) => path,
             // Default to restoring.
             Err(_) => {
-                std::process::Command::new("nitrogen")
+                let output = std::process::Command::new("nitrogen")
                     .arg("--restore")
                     .output()?;
+                std::io::stdout().write_all(&output.stdout).unwrap();
+                std::io::stderr().write_all(&output.stderr).unwrap();
                 return Ok(());
             }
         },
     };
-    std::process::Command::new("nitrogen")
+    let output = std::process::Command::new("nitrogen")
         .arg("--set-zoom-fill")
         .arg(path)
         .output()?;
+    std::io::stdout().write_all(&output.stdout).unwrap();
+    std::io::stderr().write_all(&output.stderr).unwrap();
     Ok(())
 }
 
@@ -81,7 +86,8 @@ fn try_n_times_download(url: &str, times: NonZeroU32) -> Result<ureq::Response, 
 fn try_get_prev_path() -> Result<String, Box<dyn std::error::Error>> {
     let home = std::env::var("HOME")?;
     let parent = format!("{home}/apod");
-    let entries = std::fs::read_dir(parent)?;
-    let last = entries.last().ok_or("")??;
-    Ok(last.file_name().into_string().map_err(|_| "")?)
+    let mut entries = std::fs::read_dir(&parent)?;
+    let first = entries.next().ok_or("")??;
+    let fname = first.file_name().into_string().map_err(|_| "")?;
+    Ok(format!("{parent}/{fname}"))
 }
